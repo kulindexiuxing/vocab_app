@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# 提交前密钥拦截 —— git 在每次 commit 前自动运行。
+# 扫描本次将要提交的「新增内容」，发现疑似密钥就阻止提交。
+# 启用方式（每台机器一次性）：git config core.hooksPath .githooks
+#
+# 这是「铁律：绝不提交密钥」的硬性防线，不依赖人是否记得。
+
+set -euo pipefail
+
+# 只看本次暂存的新增行（以 + 开头，排除 diff 头部的 +++）；
+# 去掉行首的 + 标记，避免它被当成内容的一部分（否则装饰器行会被误判为邮箱）
+added="$(git diff --cached -U0 --diff-filter=ACM | grep -E '^\+' | grep -vE '^\+\+\+' | sed 's/^+//' || true)"
+
+if [ -z "$added" ]; then
+  exit 0
+fi
+
+# 密钥特征（按需可加）
+patterns=(
+  'sk-ant-[A-Za-z0-9_-]{20,}'                 # Anthropic API key
+  'sk-[A-Za-z0-9]{20,}'                        # OpenAI 风格 key
+  'AKIA[0-9A-Z]{16}'                           # AWS Access Key ID
+  'ghp_[A-Za-z0-9]{36}'                        # GitHub personal token
+  'xox[baprs]-[A-Za-z0-9-]{10,}'               # Slack token
+  '-----BEGIN[A-Z ]*PRIVATE KEY-----'          # 私钥文件
+  '(api[_-]?key|secret|token|password)["'"'"' ]*[:=]["'"'"' ]*[A-Za-z0-9/_+-]{16,}'  # 通用 key=值
+  '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'  # 邮箱地址（个人信息）
+  '/Users/[A-Za-z0-9._-]+/'                     # macOS 家目录路径（暴露用户名/本地结构）
+  '/home/[A-Za-z0-9._-]+/'                      # Linux 家目录路径
+)
+
+hits=""
+for p in "${patterns[@]}"; do
+  m="$(printf '%s\n' "$added" | grep -nEi -e "$p" || true)"
+  if [ -n "$m" ]; then
+    hits="${hits}\n  [模式: ${p}]\n${m}"
+  fi
+done
+
+if [ -n "$hits" ]; then
+  echo ""
+  echo "🚫 提交被拦截：检测到疑似密钥或个人信息（铁律 — 绝不提交密钥/个人信息）"
+  echo -e "$hits"
+  echo ""
+  echo "密钥请改用环境变量；邮箱/家目录路径等个人信息请移除或改为非个人形式。"
+  echo "若确认是误报，可用  git commit --no-verify  跳过（请谨慎）。"
+  echo ""
+  exit 1
+fi
+
+exit 0

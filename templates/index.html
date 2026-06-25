@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VocabBuilder — 添加生词</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f0;color:#1a1a1a;min-height:100vh}
+
+    nav{background:#1a1a2e;padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100}
+    .logo{color:#fff;font-weight:800;font-size:18px}.logo span{color:#7aa2d4}
+    .tabs{display:flex;gap:4px}
+    .tab{color:#aaa;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;border:none;background:none;text-decoration:none;display:inline-block;transition:all .15s}
+    .tab:hover{color:#fff;background:rgba(255,255,255,.08)}
+    .tab.active{color:#fff;background:rgba(122,162,212,.25)}
+
+    .page{padding:36px 32px;max-width:720px;margin:0 auto}
+    .page-title{font-size:22px;font-weight:700;margin-bottom:5px}
+    .page-sub{color:#777;font-size:14px;margin-bottom:28px}
+
+    .stats-row{display:flex;gap:12px;margin-bottom:26px}
+    .stat-box{flex:1;background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    .stat-num{font-size:24px;font-weight:800;color:#1a1a2e}
+    .stat-label{font-size:11px;color:#999;margin-top:2px}
+
+    /* mode toggle */
+    .mode-toggle{display:flex;background:#fff;border-radius:10px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:18px;width:fit-content}
+    .mode-btn{padding:8px 20px;border-radius:7px;font-size:14px;font-weight:600;border:none;cursor:pointer;background:none;color:#888;transition:all .15s}
+    .mode-btn.active{background:#1a1a2e;color:#fff}
+
+    .card{background:#fff;border-radius:12px;padding:26px 28px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:18px}
+    .form-row{margin-bottom:18px}
+    .form-label{display:block;font-size:11px;font-weight:700;color:#666;margin-bottom:7px;text-transform:uppercase;letter-spacing:.6px}
+    input[type=text],textarea,select{width:100%;border:1.5px solid #e2e2e2;border-radius:8px;padding:11px 14px;font-size:15px;font-family:inherit;color:#1a1a1a;background:#fafafa;transition:border-color .15s;outline:none}
+    input[type=text]:focus,textarea:focus,select:focus{border-color:#7aa2d4;background:#fff}
+    textarea{resize:vertical}
+    .textarea-single{height:88px}
+    .textarea-batch{height:160px;font-family:monospace;font-size:14px}
+    select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23999' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;cursor:pointer}
+    input:disabled,textarea:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+    .btn-primary{background:#1a1a2e;color:#fff}.btn-primary:hover{background:#2e2e50}
+    .btn-primary:disabled{background:#aaa;cursor:not-allowed}
+
+    /* single result */
+    .result-card{background:#f0f6ff;border:1.5px solid #c4d9f5;border-radius:12px;padding:20px 24px;margin-top:18px;display:none}
+    .result-card.show{display:block}
+    .result-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+    .result-phrase{font-size:21px;font-weight:800;color:#1a1a2e}
+    .result-phonetics{display:flex;gap:14px;flex-wrap:wrap;margin:-6px 0 12px}
+    .phon{font-size:14px;color:#566;font-family:"Times New Roman",Georgia,serif}
+    .phon b{font-family:-apple-system,sans-serif;font-size:10px;font-weight:700;color:#7aa2d4;margin-right:5px;letter-spacing:.3px}
+    .batch-phonetics{color:#566;font-family:"Times New Roman",Georgia,serif;font-weight:400}
+    .batch-phonetics b{font-family:-apple-system,sans-serif;font-size:10px;color:#7aa2d4;margin:0 4px 0 0}
+    .result-row{display:flex;gap:10px;margin-bottom:7px}
+    .result-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7aa2d4;min-width:26px;margin-top:3px}
+    .result-val{font-size:14px;color:#333;line-height:1.55}
+    .saved-badge{display:inline-block;background:#d4edda;color:#155724;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;margin-top:12px}
+
+    /* batch results */
+    .batch-results{margin-top:18px;display:none}
+    .batch-results.show{display:block}
+    .batch-summary{font-size:14px;font-weight:600;margin-bottom:12px;color:#333}
+    .batch-item{background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid #e0e0e0}
+    .batch-item.ok{border-left-color:#28a745}
+    .batch-item.skip{border-left-color:#ffc107}
+    .batch-item.error{border-left-color:#dc3545}
+    .batch-item-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .batch-item-word{font-weight:700;font-size:15px;color:#1a1a2e}
+    .batch-status{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase}
+    .status-ok{background:#d4edda;color:#155724}
+    .status-skip{background:#fff3cd;color:#856404}
+    .status-error{background:#f8d7da;color:#721c24}
+    .batch-meanings{font-size:13px;color:#555;line-height:1.6}
+
+    .type-badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+    .type-word{background:#e8f0fe;color:#1a4fa0}
+    .type-phrasal{background:#fce8ff;color:#7a0099}
+    .type-idiom{background:#fff3e0;color:#a05000}
+    .type-expression{background:#e8fdf0;color:#0a6630}
+
+    .error-msg{color:#dc3545;font-size:14px;margin-top:12px;display:none}
+    .error-msg.show{display:block}
+    .hint{font-size:12px;color:#aaa;margin-top:6px;font-style:italic}
+
+    .loading-dots::after{content:'';animation:dots 1.2s steps(4,end) infinite}
+    @keyframes dots{0%,20%{content:''}40%{content:'.'}60%{content:'..'}80%,100%{content:'...'}}
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Vocab<span>Builder</span></div>
+  <div class="tabs">
+    <a class="tab active" href="/">添加</a>
+    <a class="tab" href="/review">复习</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-title">添加生词</div>
+  <div class="page-sub">支持单词、短语动词、习语和表达 — AI 根据上下文自动生成中文含义</div>
+
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-num" id="today-count">{{ today_count }}</div>
+      <div class="stat-label">今日已添加</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" id="total-count">{{ total_count }}</div>
+      <div class="stat-label">词库总数</div>
+    </div>
+  </div>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-single" onclick="switchMode('single')">单个添加</button>
+    <button class="mode-btn"        id="btn-batch"  onclick="switchMode('batch')">批量添加</button>
+  </div>
+
+  <!-- ── SINGLE MODE ── -->
+  <div id="mode-single">
+    <div class="card">
+      <div class="form-row">
+        <label class="form-label">类型</label>
+        <select id="type-select">
+          <option value="word">单词 Word</option>
+          <option value="phrasal">短语动词 Phrasal Verb</option>
+          <option value="idiom">习语 Idiom</option>
+          <option value="expression">表达 Expression</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label" id="entry-label">单词</label>
+        <input type="text" id="entry-input" placeholder="e.g. eloquent" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">所在句子</label>
+        <textarea id="sentence-input" class="textarea-single" placeholder="e.g. She gave an eloquent speech that moved the entire audience."></textarea>
+      </div>
+      <button class="btn btn-primary" id="add-btn" onclick="submitAdd()">
+        添加并生成含义
+      </button>
+      <div class="error-msg" id="single-error"></div>
+    </div>
+
+    <div class="result-card" id="result-card">
+      <div class="result-top">
+        <div class="result-phrase" id="result-phrase"></div>
+        <span class="type-badge" id="result-badge"></span>
+      </div>
+      <div class="result-phonetics" id="result-phonetics"></div>
+      <div class="result-row">
+        <span class="result-lbl">中文</span>
+        <span class="result-val" id="result-zh"></span>
+      </div>
+      <div class="result-row">
+        <span class="result-lbl">EN</span>
+        <span class="result-val" id="result-en"></span>
+      </div>
+      <div class="result-row">
+        <span class="result-lbl">句子</span>
+        <span class="result-val" id="result-sentence"></span>
+      </div>
+      <span class="saved-badge">✓ 已保存到词库</span>
+    </div>
+  </div>
+
+  <!-- ── BATCH MODE ── -->
+  <div id="mode-batch" style="display:none">
+    <div class="card">
+      <div class="form-row">
+        <label class="form-label">类型（批量统一）</label>
+        <select id="batch-type-select">
+          <option value="word">单词 Word</option>
+          <option value="phrasal">短语动词 Phrasal Verb</option>
+          <option value="idiom">习语 Idiom</option>
+          <option value="expression">表达 Expression</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">批量输入（每行一条）</label>
+        <textarea id="batch-input" class="textarea-batch"
+          placeholder="单词或短语 | 所在句子&#10;eloquent | She gave an eloquent speech that moved the audience.&#10;give up | He decided to give up smoking after 10 years.&#10;break a leg | She told him to break a leg before the show."></textarea>
+        <div class="hint">格式：单词或短语 | 所在句子，每行一条</div>
+      </div>
+      <button class="btn btn-primary" id="batch-btn" onclick="submitBatch()">
+        批量添加并生成含义
+      </button>
+      <div class="error-msg" id="batch-error"></div>
+    </div>
+
+    <div class="batch-results" id="batch-results">
+      <div class="batch-summary" id="batch-summary"></div>
+      <div id="batch-items"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const typeConfig = {
+    word:       { label:'单词',    cls:'type-word',       ph:'e.g. eloquent',               sph:'e.g. She gave an eloquent speech.' },
+    phrasal:    { label:'短语动词', cls:'type-phrasal',    ph:'e.g. give up',                sph:'e.g. He decided to give up smoking.' },
+    idiom:      { label:'习语',    cls:'type-idiom',      ph:'e.g. break a leg',            sph:'e.g. She told him to break a leg.' },
+    expression: { label:'表达',    cls:'type-expression', ph:'e.g. it goes without saying', sph:'e.g. It goes without saying that practice matters.' },
+  };
+
+  // ── mode switch ──
+  function switchMode(mode) {
+    document.getElementById('mode-single').style.display = mode === 'single' ? '' : 'none';
+    document.getElementById('mode-batch').style.display  = mode === 'batch'  ? '' : 'none';
+    document.getElementById('btn-single').classList.toggle('active', mode === 'single');
+    document.getElementById('btn-batch').classList.toggle('active',  mode === 'batch');
+  }
+
+  // ── type label update ──
+  document.getElementById('type-select').addEventListener('change', function() {
+    const cfg = typeConfig[this.value];
+    document.getElementById('entry-label').textContent = cfg.label;
+    document.getElementById('entry-input').placeholder = cfg.ph;
+    document.getElementById('sentence-input').placeholder = cfg.sph;
+  });
+
+  // ── single add ──
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.classList.add('show');
+  }
+  function clearError(id) { document.getElementById(id).classList.remove('show'); }
+
+  async function submitAdd() {
+    clearError('single-error');
+    const entry    = document.getElementById('entry-input').value.trim();
+    const type_    = document.getElementById('type-select').value;
+    const sentence = document.getElementById('sentence-input').value.trim();
+    if (!entry || !sentence) { showError('single-error','请填写内容和句子'); return; }
+
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-dots">AI 生成中</span>';
+
+    const form = new FormData();
+    form.append('entry', entry);
+    form.append('type', type_);
+    form.append('sentence', sentence);
+
+    try {
+      const res  = await fetch('/add', { method:'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) { showError('single-error', data.error || '发生错误'); return; }
+
+      const cfg = typeConfig[type_];
+      document.getElementById('result-phrase').textContent = entry;
+      const pUK = data.phonetic_uk ? `<span class="phon"><b>UK</b>${data.phonetic_uk}</span>` : '';
+      const pUS = data.phonetic_us ? `<span class="phon"><b>US</b>${data.phonetic_us}</span>` : '';
+      document.getElementById('result-phonetics').innerHTML = pUK + pUS;
+      const badge = document.getElementById('result-badge');
+      badge.textContent = cfg.label; badge.className = `type-badge ${cfg.cls}`;
+      document.getElementById('result-zh').textContent = data.chinese_meaning;
+      document.getElementById('result-en').textContent = data.english_definition;
+      const escaped = entry.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/['’‘`ʼ]/g,"['’‘`ʼ]");
+      document.getElementById('result-sentence').innerHTML =
+        sentence.replace(new RegExp(escaped,'gi'), `<strong style="color:#1a1a2e">${entry}</strong>`);
+
+      const rc = document.getElementById('result-card');
+      rc.classList.add('show');
+      rc.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+      document.getElementById('today-count').textContent = data.today_count;
+      document.getElementById('total-count').textContent = data.total_count;
+      document.getElementById('entry-input').value = '';
+      document.getElementById('sentence-input').value = '';
+    } catch(e) {
+      showError('single-error','网络错误，请重试');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '添加并生成含义';
+    }
+  }
+
+  // ── batch add ──
+  async function submitBatch() {
+    clearError('batch-error');
+    const entries = document.getElementById('batch-input').value.trim();
+    const type_   = document.getElementById('batch-type-select').value;
+    if (!entries) { showError('batch-error','请输入内容'); return; }
+
+    const btn = document.getElementById('batch-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-dots">AI 生成中</span>';
+
+    const form = new FormData();
+    form.append('entries', entries);
+    form.append('type', type_);
+
+    try {
+      const res  = await fetch('/batch', { method:'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) { showError('batch-error', data.error || '发生错误'); return; }
+
+      const results = data.results;
+      const okCount   = results.filter(r => r.status === 'ok').length;
+      const skipCount = results.filter(r => r.status === 'skip').length;
+      const errCount  = results.filter(r => r.status === 'error').length;
+
+      document.getElementById('batch-summary').textContent =
+        `处理完成：✓ 成功 ${okCount} 条　⚠ 已存在 ${skipCount} 条　✗ 失败 ${errCount} 条`;
+
+      document.getElementById('batch-items').innerHTML = results.map(r => {
+        const statusMap = { ok:'✓ 已保存', skip:'已存在', error:'失败' };
+        const clsMap    = { ok:'status-ok', skip:'status-skip', error:'status-error' };
+        const phon = (r.phonetic_uk || r.phonetic_us)
+          ? `<div class="batch-meanings">音标：<span class="batch-phonetics">${r.phonetic_uk ? `<b>UK</b>${r.phonetic_uk}　` : ''}${r.phonetic_us ? `<b>US</b>${r.phonetic_us}` : ''}</span></div>` : '';
+        const meanings  = r.status === 'ok'
+          ? `${phon}<div class="batch-meanings">中文：${r.chinese}<br>EN：${r.english}</div>`
+          : `<div class="batch-meanings" style="color:#999">${r.msg}</div>`;
+        return `
+          <div class="batch-item ${r.status}">
+            <div class="batch-item-header">
+              <span class="batch-item-word">${r.entry || r.line}</span>
+              <span class="batch-status ${clsMap[r.status]}">${statusMap[r.status]}</span>
+            </div>
+            ${meanings}
+          </div>`;
+      }).join('');
+
+      const br = document.getElementById('batch-results');
+      br.classList.add('show');
+      br.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+      document.getElementById('today-count').textContent = data.today_count;
+      document.getElementById('total-count').textContent = data.total_count;
+    } catch(e) {
+      showError('batch-error','网络错误，请重试');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '批量添加并生成含义';
+    }
+  }
+
+  document.getElementById('entry-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('sentence-input').focus();
+  });
+  document.getElementById('sentence-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.metaKey) submitAdd();
+  });
+</script>
+</body>
+</html>

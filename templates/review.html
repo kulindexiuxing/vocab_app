@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VocabBuilder — 复习</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f0;color:#1a1a1a;min-height:100vh}
+
+    nav{background:#1a1a2e;padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100}
+    .logo{color:#fff;font-weight:800;font-size:18px}.logo span{color:#7aa2d4}
+    .tabs{display:flex;gap:4px}
+    .tab{color:#aaa;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;border:none;background:none;text-decoration:none;display:inline-block;transition:all .15s}
+    .tab:hover{color:#fff;background:rgba(255,255,255,.08)}
+    .tab.active{color:#fff;background:rgba(122,162,212,.25)}
+
+    .page{padding:36px 32px;max-width:720px;margin:0 auto}
+    .page-title{font-size:22px;font-weight:700;margin-bottom:5px}
+    .page-sub{color:#777;font-size:14px}
+
+    .review-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px}
+    .session-badge{font-size:12px;font-weight:700;padding:5px 14px;border-radius:20px;background:#1a1a2e;color:#fff;white-space:nowrap;margin-top:4px}
+
+    /* empty state */
+    .empty-state{background:#fff;border-radius:12px;padding:48px 32px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+    .empty-state p{color:#999;font-size:15px;margin-bottom:16px}
+    .btn-link{background:none;border:none;color:#7aa2d4;font-size:15px;cursor:pointer;text-decoration:underline;font-family:inherit}
+
+    /* word bank */
+    .bank-section{background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:26px;border:2px solid #e4e4e4;position:sticky;top:56px;z-index:10}
+    .bank-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#999;margin-bottom:13px}
+    .word-bank{display:flex;flex-wrap:wrap;gap:9px}
+    .bank-chip{padding:7px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;user-select:none;border:2px solid transparent}
+    .bank-chip:hover:not(.used){transform:translateY(-2px);box-shadow:0 3px 8px rgba(0,0,0,.12)}
+    .bank-chip.selected{background:#fff !important;color:#1a1a2e !important;border-color:#1a1a2e;box-shadow:0 0 0 3px rgba(26,26,46,.12)}
+    .bank-chip.used{background:#ebebeb !important;color:#c0c0c0 !important;cursor:default;transform:none;border-color:transparent}
+    .hint-text{font-size:12px;color:#bbb;margin-top:10px;font-style:italic}
+
+    /* type colours */
+    .type-word{background:#e8f0fe;color:#1a4fa0}
+    .type-phrasal{background:#fce8ff;color:#7a0099}
+    .type-idiom{background:#fff3e0;color:#a05000}
+    .type-expression{background:#e8fdf0;color:#0a6630}
+    .type-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+    .origin-today{background:#e8f0fe;color:#1a4fa0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase}
+    .origin-history{background:#f0f0f0;color:#888;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase}
+
+    /* quiz cards */
+    .quiz-card{background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:12px;border-left:4px solid #e8e8e8;transition:all .2s}
+    .quiz-card.correct{border-left-color:#28a745;background:#f8fff9}
+    .quiz-card.wrong{border-left-color:#dc3545;background:#fff8f8}
+    .quiz-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .quiz-num{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#bbb}
+    .quiz-sentence{font-size:17px;color:#1a1a1a;line-height:1.7}
+    .quiz-sentence-zh{font-size:14px;color:#999;line-height:1.6;margin-top:8px}
+
+    /* blank */
+    .blank-slot{display:inline-block;min-width:120px;padding:1px 10px;border-bottom:2.5px solid #7aa2d4;color:#7aa2d4;font-weight:700;font-size:15px;cursor:pointer;border-radius:4px 4px 0 0;transition:all .15s;text-align:center;vertical-align:baseline}
+    .blank-slot:empty::before{content:'___________';color:#c8d4e8;font-weight:400}
+    .blank-slot.ready{background:#eef3ff;border-bottom-color:#1a1a2e}
+    .blank-slot.filled{color:#1a1a2e;border-bottom-color:#1a1a2e;background:#f0f5ff}
+    .blank-slot.correct-fill{color:#155724;background:#d4edda;border-bottom-color:#28a745}
+    .blank-slot.wrong-fill{color:#721c24;background:#f8d7da;border-bottom-color:#dc3545}
+
+    .answer-reveal{display:none;margin-top:10px;font-size:13px;color:#666}
+    .answer-reveal.show{display:block}
+    .correct-ans{color:#28a745;font-weight:700}
+
+    .familiarity-row{display:none;margin-top:13px;padding-top:11px;border-top:1px solid #f0f0f0;align-items:center;gap:10px}
+    .familiarity-row.show{display:flex}
+    .check-label{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:#666;font-weight:500;user-select:none}
+    .check-label input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:#1a1a2e}
+    .check-label.checked{color:#28a745;font-weight:600}
+
+    /* action bar */
+    .action-bar{margin-top:26px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .progress-text{font-size:13px;color:#999}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+    .btn-primary{background:#1a1a2e;color:#fff}.btn-primary:hover{background:#2e2e50}
+    .btn-success{background:#28a745;color:#fff}.btn-success:hover{background:#218838}
+    .btn-outline{background:#fff;color:#1a1a2e;border:1.5px solid #1a1a2e}.btn-outline:hover{background:#f4f4f4}
+
+    /* summary */
+    .result-summary{display:none;background:#fff;border-radius:12px;padding:28px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-top:22px;text-align:center}
+    .result-summary.show{display:block}
+    .summary-score{font-size:36px;font-weight:800;color:#1a1a2e}
+    .summary-sub{font-size:14px;color:#888;margin-top:4px}
+    .summary-note{font-size:13px;color:#777;margin-top:14px;line-height:1.5}
+
+    /* vocab summary */
+    .vocab-summary{display:none;margin-top:28px}
+    .vocab-summary.show{display:block}
+    .vocab-summary-title{font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #e8e8e8}
+    .vocab-item{background:#fff;border-radius:12px;padding:18px 22px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+    .vocab-item-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+    .vocab-entry{font-size:18px;font-weight:800;color:#1a1a2e}
+    .vocab-phon{font-size:13px;color:#566;font-family:"Times New Roman",Georgia,serif;font-weight:400;margin-left:8px}
+    .vocab-phon b{font-family:-apple-system,sans-serif;font-size:9px;font-weight:700;color:#7aa2d4;margin-right:4px}
+    .vocab-row{display:flex;gap:8px;margin-bottom:5px;align-items:flex-start}
+    .vocab-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7aa2d4;min-width:40px;margin-top:2px;flex-shrink:0}
+    .vocab-val{font-size:14px;color:#333;line-height:1.55}
+    .vocab-sentence-en{font-size:14px;color:#555;font-style:italic;line-height:1.6}
+    .vocab-sentence-zh{font-size:14px;color:#888;line-height:1.6}
+    .vocab-divider{height:1px;background:#f0f0f0;margin:8px 0}
+
+    /* edit */
+    .vocab-item-top{justify-content:space-between}
+    .vocab-item-left{display:flex;align-items:center;gap:10px}
+    .btn-edit{background:none;border:1px solid #d4d4d4;color:#888;font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;cursor:pointer;font-family:inherit;transition:all .15s}
+    .btn-edit:hover{border-color:#1a1a2e;color:#1a1a2e}
+    .edit-form{display:flex;flex-direction:column;gap:10px}
+    .edit-row{display:flex;flex-direction:column;gap:4px}
+    .edit-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7aa2d4}
+    .edit-form input,.edit-form select,.edit-form textarea{font-family:inherit;font-size:14px;padding:8px 11px;border:1.5px solid #d4d4d4;border-radius:7px;width:100%;color:#1a1a1a}
+    .edit-form input:focus,.edit-form select:focus,.edit-form textarea:focus{outline:none;border-color:#1a1a2e}
+    .edit-form textarea{resize:vertical;min-height:60px;line-height:1.5}
+    .edit-actions{display:flex;gap:9px;margin-top:2px}
+    .edit-hint{font-size:12px;color:#aaa;line-height:1.5}
+    .btn-sm{padding:8px 18px;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Vocab<span>Builder</span></div>
+  <div class="tabs">
+    <a class="tab" href="/">添加</a>
+    <a class="tab active" href="/review">复习</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="review-header">
+    <div>
+      <div class="page-title">词汇复习</div>
+      <div class="page-sub">{{ session_label }}</div>
+    </div>
+    {% if words %}
+    <span class="session-badge">
+      {% if extra_count > 0 %}
+        昨日 {{ target_count }} 项 + 历史 {{ extra_count }} 项
+      {% else %}
+        昨日 {{ target_count }} 项
+      {% endif %}
+    </span>
+    {% endif %}
+  </div>
+
+  {% if not words %}
+  <div class="empty-state">
+    <p>今天还没有添加任何生词。</p>
+    <a href="/">← 去添加生词</a>
+  </div>
+  {% else %}
+
+  <!-- Sticky word bank (built by JS) -->
+  <div class="bank-section">
+    <div class="bank-title">词库 — 点击选中，再点击空格填入</div>
+    <div class="word-bank" id="word-bank"></div>
+    <div class="hint-text">点击已填入的空格可撤销</div>
+  </div>
+
+  <!-- Quiz cards (built by JS) -->
+  <div id="quiz-list"></div>
+
+  <div class="action-bar">
+    <button class="btn btn-primary" id="check-btn" onclick="checkAnswers()">检查答案</button>
+    <button class="btn btn-outline"  id="reset-btn" onclick="resetReview()" style="display:none">重新作答</button>
+    <button class="btn btn-outline"  id="refresh-btn" onclick="refreshSentences()">🔄 换一批例句</button>
+    <span class="progress-text" id="progress-text"></span>
+  </div>
+
+  <div class="result-summary" id="result-summary">
+    <div class="summary-score" id="summary-score"></div>
+    <div class="summary-sub">答对 / 共 {{ words|length }} 题</div>
+    <div class="summary-note">勾选熟悉的词，下次随机抽题时它们出现的概率会降低</div>
+  </div>
+
+  <!-- Vocabulary summary (shown after checking answers) -->
+  <div class="vocab-summary" id="vocab-summary">
+    <div class="vocab-summary-title">📖 本次复习词汇一览</div>
+    <div id="vocab-list"></div>
+  </div>
+
+  {% endif %}
+</div>
+
+<script>
+const WORDS = {{ words | tojson }};
+const TYPE_LABELS = { word:'单词', phrasal:'短语动词', idiom:'习语', expression:'表达' };
+const TYPE_CLS    = { word:'type-word', phrasal:'type-phrasal', idiom:'type-idiom', expression:'type-expression' };
+const TODAY = '{{ "" if not words else words[0].date_added if false else "" }}';
+
+let selectedChip = null;
+let filled = {};
+let checked = false;
+
+function buildReview() {
+  selectedChip = null; filled = {}; checked = false;
+
+  // Shuffle words for bank
+  const shuffled = [...WORDS].sort(() => Math.random() - 0.5);
+  document.getElementById('word-bank').innerHTML = shuffled.map(w =>
+    `<div class="bank-chip ${TYPE_CLS[w.type]}" id="chip-${w.id}" onclick="selectChip(${w.id},'${escJs(w.entry)}')">${w.entry}</div>`
+  ).join('');
+
+  document.getElementById('quiz-list').innerHTML = WORDS.map((w, i) => {
+    const originBadge = w.date_added === WORDS[0].date_added
+      ? `<span class="origin-today">今日</span>`
+      : `<span class="origin-history">历史 · ${w.date_added.slice(5)}</span>`;
+    const typeBadge = `<span class="type-badge ${TYPE_CLS[w.type]}">${TYPE_LABELS[w.type]}</span>`;
+    return `
+      <div class="quiz-card" id="card-${w.id}">
+        <div class="quiz-top">
+          <span class="quiz-num">第 ${i+1} 题</span>
+          <div style="display:flex;gap:6px">${originBadge}${typeBadge}</div>
+        </div>
+        <div class="quiz-sentence">${buildSentence(w)}</div>
+        ${quizZh(w) ? `<div class="quiz-sentence-zh">${quizZh(w)}</div>` : ''}
+        <div class="answer-reveal" id="reveal-${w.id}"></div>
+        <div class="familiarity-row" id="fam-${w.id}">
+          <label class="check-label" id="checklabel-${w.id}">
+            <input type="checkbox" id="cb-${w.id}" onchange="toggleFam(${w.id})">
+            我已熟悉，下次少考我
+          </label>
+        </div>
+      </div>`;
+  }).join('');
+
+  updateProgress();
+}
+
+// Build a regex for the entry that tolerates apostrophe variants (’ vs ' vs ` etc.).
+// AI-generated review sentences often use a straight apostrophe while the stored
+// entry uses a curly one, which otherwise breaks blank-replacement (e.g. "fool's gold").
+function entryRegex(entry, flags) {
+  const escaped = entry
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/['’‘`ʼ]/g, "['’‘`ʼ]");
+  return new RegExp(escaped, flags);
+}
+
+function buildSentence(w) {
+  const blank = `<span class="blank-slot" id="slot-${w.id}" onclick="fillSlot(${w.id})"></span>`;
+  const src = w.review_sentence || w.sentence;
+  // Preferred: the generator marks the exact target span with [[...]]. Blanking that
+  // span handles inflected idioms ("pulled herself up by her bootstraps") and filled-in
+  // placeholders (oneself→herself) that a literal match can't catch.
+  if (src.includes('[[') && src.includes(']]')) {
+    return src.replace(/\[\[[\s\S]*?\]\]/, blank);
+  }
+  // Fallback for older, unmarked sentences: match the entry literally (apostrophe-tolerant).
+  const result = src.replace(entryRegex(w.entry, 'i'), blank);
+  if (!result.includes(`id="slot-${w.id}"`)) {
+    return src + ' ' + blank;
+  }
+  return result;
+}
+
+function quizZh(w) {
+  const hasReview = w.review_sentence && w.review_sentence !== w.sentence;
+  return hasReview ? (w.review_sentence_chinese || '') : (w.chinese_sentence || '');
+}
+
+function escJs(s) { return s.replace(/'/g,"\\'"); }
+
+function selectChip(id, entry) {
+  if (checked) return;
+  if (isEntryUsed(entry)) return;
+
+  if (selectedChip !== null) {
+    const prev = document.getElementById('chip-' + selectedChip.id);
+    if (prev && !isEntryUsed(selectedChip.entry)) prev.classList.remove('selected');
+  }
+
+  if (selectedChip && selectedChip.id === id) {
+    selectedChip = null;
+    document.querySelectorAll('.blank-slot:not(.filled)').forEach(s => s.classList.remove('ready'));
+    return;
+  }
+
+  selectedChip = { id, entry };
+  document.getElementById('chip-' + id).classList.add('selected');
+  document.querySelectorAll('.blank-slot:not(.filled)').forEach(s => s.classList.add('ready'));
+}
+
+function fillSlot(wId) {
+  if (checked) return;
+  const slot = document.getElementById('slot-' + wId);
+
+  // Click on filled slot → undo
+  if (filled[wId]) {
+    const old = filled[wId];
+    const chip = document.getElementById('chip-' + old.id);
+    if (chip) chip.classList.remove('used', 'selected');
+    delete filled[wId];
+    slot.textContent = '';
+    slot.classList.remove('filled', 'ready');
+    updateProgress();
+    return;
+  }
+
+  if (!selectedChip) return;
+
+  filled[wId] = selectedChip;
+  slot.textContent = selectedChip.entry;
+  slot.classList.add('filled');
+  slot.classList.remove('ready');
+
+  const chip = document.getElementById('chip-' + selectedChip.id);
+  if (chip) { chip.classList.remove('selected'); chip.classList.add('used'); }
+
+  selectedChip = null;
+  document.querySelectorAll('.blank-slot').forEach(s => s.classList.remove('ready'));
+  updateProgress();
+}
+
+function isEntryUsed(entry) {
+  return Object.values(filled).some(f => f.entry === entry);
+}
+
+function updateProgress() {
+  const n = Object.keys(filled).length;
+  document.getElementById('progress-text').textContent = `已填写 ${n} / ${WORDS.length} 个空格`;
+}
+
+function checkAnswers() {
+  if (Object.keys(filled).length < WORDS.length) {
+    alert('请先填完所有空格！'); return;
+  }
+  checked = true;
+  let correct = 0;
+
+  WORDS.forEach(w => {
+    const slot   = document.getElementById('slot-' + w.id);
+    const card   = document.getElementById('card-' + w.id);
+    const reveal = document.getElementById('reveal-' + w.id);
+    const fam    = document.getElementById('fam-' + w.id);
+    const ans    = (filled[w.id] || {}).entry || '';
+    const ok     = ans.toLowerCase() === w.entry.toLowerCase();
+
+    if (ok) {
+      correct++;
+      slot.classList.add('correct-fill');
+      card.classList.add('correct');
+      reveal.innerHTML = `<span style="color:#28a745">✓ 正确！</span>`;
+    } else {
+      slot.classList.add('wrong-fill');
+      card.classList.add('wrong');
+      reveal.innerHTML = `<span style="color:#dc3545">✗ 错误。</span> 正确答案：<span class="correct-ans">${w.entry}</span>`;
+    }
+    reveal.classList.add('show');
+    fam.classList.add('show');
+  });
+
+  document.getElementById('summary-score').textContent = `${correct} / ${WORDS.length}`;
+  document.getElementById('result-summary').classList.add('show');
+  document.getElementById('check-btn').style.display = 'none';
+  document.getElementById('reset-btn').style.display = 'inline-flex';
+  document.getElementById('progress-text').textContent = `答对 ${correct} / ${WORDS.length} 题`;
+  buildVocabSummary();
+  setTimeout(() => document.getElementById('result-summary').scrollIntoView({behavior:'smooth',block:'nearest'}), 100);
+}
+
+let editingId = null;
+
+function buildVocabSummary() {
+  document.getElementById('vocab-list').innerHTML = WORDS.map(w =>
+    w.id === editingId ? renderEditForm(w) : renderVocabItem(w)
+  ).join('');
+  document.getElementById('vocab-summary').classList.add('show');
+}
+
+function renderVocabItem(w) {
+  const bold = s => {
+    // Marked span ([[...]]) → bold exactly that; otherwise match the entry literally.
+    if (s.includes('[[') && s.includes(']]')) {
+      return s.replace(/\[\[([\s\S]*?)\]\]/g, '<strong style="color:#1a1a2e">$1</strong>');
+    }
+    return s.replace(entryRegex(w.entry, 'gi'), `<strong style="color:#1a1a2e">${w.entry}</strong>`);
+  };
+  const hasReview = w.review_sentence && w.review_sentence !== w.sentence;
+  const reviewSrc = w.review_sentence || w.sentence;
+  // 例句: the AI review sentence (or the original as fallback), with its Chinese
+  const reviewZh = hasReview ? (w.review_sentence_chinese || '') : (w.chinese_sentence || '');
+  const reviewLine = `<div class="vocab-row"><span class="vocab-lbl">例句</span><span class="vocab-val vocab-sentence-en">${bold(reviewSrc)}</span></div>`
+    + (reviewZh ? `<div class="vocab-row"><span class="vocab-lbl"></span><span class="vocab-val vocab-sentence-zh">${reviewZh}</span></div>` : '');
+  // 原句: the original input sentence, with its Chinese (only when a new review sentence exists)
+  const origLine = hasReview
+    ? `<div class="vocab-row"><span class="vocab-lbl">原句</span><span class="vocab-val vocab-sentence-en" style="color:#aaa">${bold(w.sentence)}</span></div>`
+      + (w.chinese_sentence ? `<div class="vocab-row"><span class="vocab-lbl"></span><span class="vocab-val vocab-sentence-zh">${w.chinese_sentence}</span></div>` : '')
+    : '';
+  const zhSentence = '';
+  return `
+    <div class="vocab-item">
+      <div class="vocab-item-top">
+        <div class="vocab-item-left">
+          <span class="vocab-entry">${w.entry}</span>
+          ${w.phonetic_uk ? `<span class="vocab-phon"><b>UK</b>${w.phonetic_uk}</span>` : ''}
+          ${w.phonetic_us ? `<span class="vocab-phon"><b>US</b>${w.phonetic_us}</span>` : ''}
+          <span class="type-badge ${TYPE_CLS[w.type]}">${TYPE_LABELS[w.type]}</span>
+        </div>
+        <button class="btn-edit" onclick="editWord(${w.id})">编辑</button>
+      </div>
+      <div class="vocab-row"><span class="vocab-lbl">中文</span><span class="vocab-val">${w.chinese_meaning}</span></div>
+      <div class="vocab-row"><span class="vocab-lbl">EN</span><span class="vocab-val">${w.english_definition}</span></div>
+      <div class="vocab-divider"></div>
+      ${reviewLine}
+      ${origLine}
+      ${zhSentence}
+    </div>`;
+}
+
+function renderEditForm(w) {
+  const opts = Object.keys(TYPE_LABELS).map(t =>
+    `<option value="${t}" ${t === w.type ? 'selected' : ''}>${TYPE_LABELS[t]}</option>`
+  ).join('');
+  return `
+    <div class="vocab-item">
+      <div class="edit-form">
+        <div class="edit-row">
+          <span class="edit-lbl">单词 / 短语</span>
+          <input type="text" id="edit-entry-${w.id}" value="${escAttr(w.entry)}">
+        </div>
+        <div class="edit-row">
+          <span class="edit-lbl">类型</span>
+          <select id="edit-type-${w.id}">${opts}</select>
+        </div>
+        <div class="edit-row">
+          <span class="edit-lbl">原句（须包含上面的单词/短语）</span>
+          <textarea id="edit-sentence-${w.id}">${escHtml(w.sentence)}</textarea>
+        </div>
+        <div class="edit-row">
+          <span class="edit-lbl">中文释义</span>
+          <textarea id="edit-chinese-${w.id}">${escHtml(w.chinese_meaning)}</textarea>
+        </div>
+        <div class="edit-row">
+          <span class="edit-lbl">英文释义</span>
+          <textarea id="edit-english-${w.id}">${escHtml(w.english_definition)}</textarea>
+        </div>
+        <div class="edit-hint">保存后将清空已生成的复习例句，下次复习时按新词重新生成。提示：把释义改得更通用（如「篡改/伪造」而非「篡改统计数据」）能让复习例句搭配更多名词。</div>
+        <div class="edit-actions">
+          <button class="btn-sm btn-primary" onclick="saveEdit(${w.id})">保存</button>
+          <button class="btn-sm btn-outline" onclick="cancelEdit()">取消</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function editWord(id) { editingId = id; buildVocabSummary(); }
+function cancelEdit() { editingId = null; buildVocabSummary(); }
+
+async function saveEdit(id) {
+  const entry    = document.getElementById('edit-entry-' + id).value.trim();
+  const type_    = document.getElementById('edit-type-' + id).value;
+  const sentence = document.getElementById('edit-sentence-' + id).value.trim();
+  const chinese  = document.getElementById('edit-chinese-' + id).value.trim();
+  const english  = document.getElementById('edit-english-' + id).value.trim();
+  if (!entry || !sentence) { alert('单词和句子都不能为空'); return; }
+  if (!chinese || !english) { alert('中文与英文释义都不能为空'); return; }
+
+  try {
+    const res  = await fetch('/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word_id: id, entry, type: type_, sentence,
+                             chinese_meaning: chinese, english_definition: english })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || '保存失败'); return; }
+
+    const w = WORDS.find(x => x.id === id);
+    if (w) {
+      w.entry = data.entry; w.type = data.type; w.sentence = data.sentence;
+      w.chinese_meaning = data.chinese_meaning; w.english_definition = data.english_definition;
+      w.review_sentence = '';
+    }
+    editingId = null;
+    buildVocabSummary();
+  } catch (e) {
+    alert('保存失败：' + e);
+  }
+}
+
+async function refreshSentences() {
+  const btn = document.getElementById('refresh-btn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '🔄 生成中…';
+  try {
+    const res = await fetch('/regenerate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word_ids: WORDS.map(w => w.id) })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || '生成失败'); return; }
+
+    const map = data.sentences || {};
+    WORDS.forEach(w => {
+      const fresh = map[w.id];
+      if (fresh) {
+        w.review_sentence = fresh.review_sentence;
+        w.review_sentence_chinese = fresh.review_sentence_chinese;
+      }
+    });
+
+    // New sentences → reset the quiz and rebuild from scratch.
+    document.getElementById('check-btn').style.display = 'inline-flex';
+    document.getElementById('reset-btn').style.display = 'none';
+    document.getElementById('result-summary').classList.remove('show');
+    document.getElementById('vocab-summary').classList.remove('show');
+    buildReview();
+  } catch (e) {
+    alert('生成失败：' + e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
+function resetReview() {
+  document.getElementById('check-btn').style.display = 'inline-flex';
+  document.getElementById('reset-btn').style.display = 'none';
+  document.getElementById('result-summary').classList.remove('show');
+  document.getElementById('vocab-summary').classList.remove('show');
+  buildReview();
+}
+
+async function toggleFam(wId) {
+  const cb    = document.getElementById('cb-' + wId);
+  const label = document.getElementById('checklabel-' + wId);
+  label.classList.toggle('checked', cb.checked);
+  if (cb.checked) {
+    await fetch('/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word_id: wId })
+    });
+  }
+}
+
+if (WORDS.length > 0) buildReview();
+</script>
+</body>
+</html>
