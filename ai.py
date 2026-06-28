@@ -1,5 +1,6 @@
-import anthropic
+import os
 import json
+from openai import OpenAI
 
 TYPE_LABELS = {
     'word':       'word',
@@ -7,6 +8,35 @@ TYPE_LABELS = {
     'idiom':      'idiom',
     'expression': 'expression',
 }
+
+MODEL = 'deepseek-v4-flash'
+
+
+def _client():
+    return OpenAI(
+        api_key=os.environ['DEEPSEEK_API_KEY'],
+        base_url='https://api.deepseek.com',
+    )
+
+
+def _chat(prompt, max_tokens):
+    """Send a single user prompt to DeepSeek and return the stripped text reply."""
+    resp = _client().chat.completions.create(
+        model=MODEL,
+        max_tokens=max_tokens,
+        messages=[{'role': 'user', 'content': prompt}],
+    )
+    return resp.choices[0].message.content.strip()
+
+
+def _strip_fence(text):
+    if text.startswith('```'):
+        text = text.split('```')[1]
+        if text.startswith('json'):
+            text = text[4:]
+        text = text.strip()
+    return text
+
 
 def generate_meaning(entry, type_, sentence):
     label = TYPE_LABELS.get(type_, 'word')
@@ -21,22 +51,18 @@ Provide:
 Return ONLY valid JSON, no markdown:
 {{"chinese_meaning": "...", "english_definition": "...", "chinese_sentence": "..."}}"""
 
-    client = anthropic.Anthropic()
-    message = client.messages.create(
-        model='claude-haiku-4-5-20251001',
-        max_tokens=400,
-        messages=[{'role': 'user', 'content': prompt}]
-    )
-
-    text = message.content[0].text.strip()
-    if text.startswith('```'):
-        text = text.split('```')[1]
-        if text.startswith('json'):
-            text = text[4:]
-        text = text.strip()
-
-    result = json.loads(text)
-    return result['chinese_meaning'], result['english_definition'], result.get('chinese_sentence', '')
+    # DeepSeek can occasionally return empty/garbled content, and the network call
+    # itself can hit a transient connection error. Both are transient, so retry a
+    # couple times before giving up rather than failing the whole /add with a 500.
+    last_err = None
+    for _attempt in range(3):
+        try:
+            text = _strip_fence(_chat(prompt, 400))
+            result = json.loads(text)
+            return result['chinese_meaning'], result['english_definition'], result.get('chinese_sentence', '')
+        except Exception as e:
+            last_err = e
+    raise last_err
 
 
 def generate_review_sentence(entry, type_, original_sentence, chinese_meaning, avoid=''):
@@ -57,22 +83,11 @@ In the English sentence, wrap the EXACT words where "{entry}" actually appears i
 Return ONLY valid JSON, no markdown:
 {{"sentence": "...", "chinese_sentence": "..."}}"""
 
-    client = anthropic.Anthropic()
     multiword = len(entry.strip().split()) > 1
 
     sentence = chinese = ''
     for _attempt in range(2):
-        message = client.messages.create(
-            model='claude-haiku-4-5-20251001',
-            max_tokens=300,
-            messages=[{'role': 'user', 'content': prompt}]
-        )
-        text = message.content[0].text.strip()
-        if text.startswith('```'):
-            text = text.split('```')[1]
-            if text.startswith('json'):
-                text = text[4:]
-            text = text.strip()
+        text = _strip_fence(_chat(prompt, 300))
         result = json.loads(text)
         sentence = result['sentence'].strip()
         chinese = result.get('chinese_sentence', '').strip()
@@ -104,20 +119,7 @@ Rules:
 Return ONLY valid JSON, no markdown:
 {{"uk": "/.../", "us": "/.../"}}"""
 
-    client = anthropic.Anthropic()
-    message = client.messages.create(
-        model='claude-haiku-4-5-20251001',
-        max_tokens=150,
-        messages=[{'role': 'user', 'content': prompt}]
-    )
-
-    text = message.content[0].text.strip()
-    if text.startswith('```'):
-        text = text.split('```')[1]
-        if text.startswith('json'):
-            text = text[4:]
-        text = text.strip()
-
+    text = _strip_fence(_chat(prompt, 150))
     result = json.loads(text)
     return result.get('uk', '').strip(), result.get('us', '').strip()
 
@@ -128,10 +130,4 @@ Return ONLY the Chinese translation, no quotes, no explanation.
 
 "{sentence}\""""
 
-    client = anthropic.Anthropic()
-    message = client.messages.create(
-        model='claude-haiku-4-5-20251001',
-        max_tokens=200,
-        messages=[{'role': 'user', 'content': prompt}]
-    )
-    return message.content[0].text.strip()
+    return _chat(prompt, 200)
